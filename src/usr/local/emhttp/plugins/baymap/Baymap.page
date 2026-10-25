@@ -161,7 +161,7 @@ function bmShow(serial){
   if (d.style.display==='block') d.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 async function bmPost(data, box){
-  const f=new FormData(); f.append('csrf_token', bmCsrf); for (const k in data) f.append(k, data[k]);
+  const f=new URLSearchParams(); f.append('csrf_token', bmCsrf); for (const k in data) f.append(k, data[k]);
   const msg=box.querySelector('.bm-msg'); if (msg) msg.textContent='working...';
   try { const r=await fetch('/plugins/baymap/include/action.php',{method:'POST',body:f}); const j=await r.json();
         if (msg) msg.textContent=j.msg; return j; } catch(e){ if (msg) msg.textContent='failed: '+e; return {ok:false}; }
