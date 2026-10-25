@@ -15,11 +15,14 @@ $dl = is_file(bm_path(BM_DL_DIR . '/locations.json'));
 </style>
 
 <h3 style="margin-top:0">Bay groups</h3>
-<p class="bm-note">One group per cage, chassis or row of bays. Trays are numbered from <i>First tray</i>, counting along rows or down columns.
+<p class="bm-note">One group per cage, chassis or row of bays, any size (a 5-bay cage is 1 column x 5 rows, or 5 x 1 if the drives stand upright).
+Trays are numbered from <i>First tray</i>, counting along rows or down columns, starting at the corner you choose, so the map can match the numbers on your case.
+<i>Trays drawn</i>: vertical for drives that stand upright. <i>Placement</i>: put a group next to the one before it (for cages side by side) or below it.
+<i>Blank trays</i>: tray numbers that are drawn as a gap (no bay there); they cannot hold a disk.
 To place a disk, open it on the Map tab and choose its group and tray.</p>
 <div id="bm-box">
 <table id="bm-groups">
-<thead><tr><th>Name</th><th>Columns</th><th>Rows</th><th>First tray</th><th>Count trays</th><th>Color</th><th></th></tr></thead>
+<thead><tr><th>Name</th><th>Columns</th><th>Rows</th><th>First tray</th><th>Count trays</th><th>Starting at</th><th>Trays drawn</th><th>Placement</th><th>Blank trays</th><th>Color</th><th></th></tr></thead>
 <tbody></tbody>
 </table>
 <input type="button" value="Add group" onclick="bmAdd({})">
@@ -44,8 +47,13 @@ function bmAdd(g){
   tr.innerHTML=`<td><input type="text" data-f="name"></td><td><input class="n" type="number" min="1" max="24" data-f="cols"></td>
    <td><input class="n" type="number" min="1" max="24" data-f="rows"></td><td><input class="n" type="number" min="0" data-f="start"></td>
    <td><select data-f="order"><option value="row">along rows</option><option value="column">down columns</option></select></td>
+   <td><select data-f="corner"><option value="tl">top left</option><option value="tr">top right</option><option value="bl">bottom left</option><option value="br">bottom right</option></select></td>
+   <td><select data-f="orient"><option value="h">horizontal</option><option value="v">vertical (upright)</option></select></td>
+   <td><select data-f="place"><option value="below">below previous</option><option value="beside">beside previous</option></select></td>
+   <td><input type="text" data-f="blank" placeholder="e.g. 3, 7-8" style="width:90px"></td>
    <td><input type="color" data-f="color"></td><td><input type="button" value="Delete" onclick="if(confirm('Delete this group? Disks placed in it become unplaced.'))this.closest('tr').remove()"></td>`;
-  const v={name:g.name||'New group',cols:g.cols||4,rows:g.rows||1,start:g.start??1,order:g.order||'row',color:g.color||'#888888'};
+  const v={name:g.name||'New group',cols:g.cols||4,rows:g.rows||1,start:g.start??1,order:g.order||'row',corner:g.corner||'tl',
+    orient:g.orient||'h',place:g.place||'below',blank:(g.blank||[]).join(', '),color:g.color||'#888888'};
   for (const k in v) tr.querySelector('[data-f="'+k+'"]').value=v[k];
   document.querySelector('#bm-groups tbody').appendChild(tr);
 }

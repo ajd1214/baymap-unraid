@@ -21,6 +21,7 @@ switch ($a) {
         if (!$g) out(false, 'unknown group');
         $max = (int)$g['start'] + (int)$g['cols'] * (int)$g['rows'] - 1;
         if ($tray < (int)$g['start'] || $tray > $max) out(false, "tray must be {$g['start']}-$max");
+        if (bm_is_blank($g, $tray)) out(false, "tray $tray is set as blank in this group");
         foreach ($l['trays'] as $s => $t) if ($s !== $serial && $t['group'] === $group && (int)$t['tray'] === $tray) unset($l['trays'][$s]);   // previous occupant becomes unplaced
         $l['trays'][$serial] = ['group' => $group, 'tray' => $tray];
         bm_save_layout($l); out(true, "placed in {$g['name']} tray $tray");
@@ -46,7 +47,11 @@ switch ($a) {
             $groups[] = ['id' => $id, 'name' => mb_substr(trim((string)($g['name'] ?? 'Group')), 0, 40) ?: 'Group',
                 'cols' => max(1, min(24, (int)($g['cols'] ?? 1))), 'rows' => max(1, min(24, (int)($g['rows'] ?? 1))),
                 'start' => max(0, (int)($g['start'] ?? 1)), 'order' => ($g['order'] ?? 'row') === 'column' ? 'column' : 'row',
-                'color' => preg_match('/^#[0-9A-Fa-f]{6}$/', (string)($g['color'] ?? '')) ? $g['color'] : ''];
+                'color' => preg_match('/^#[0-9A-Fa-f]{6}$/', (string)($g['color'] ?? '')) ? $g['color'] : '',
+                'orient' => ($g['orient'] ?? 'h') === 'v' ? 'v' : 'h',
+                'place' => ($g['place'] ?? 'below') === 'beside' ? 'beside' : 'below',
+                'corner' => in_array($g['corner'] ?? 'tl', ['tl', 'tr', 'bl', 'br'], true) ? $g['corner'] : 'tl',
+                'blank' => bm_parse_list($g['blank'] ?? '')];
         }
         $l = bm_layout(); $l['groups'] = $groups;
         foreach ($l['trays'] as $s => $t) if (!in_array($t['group'], $ids, true)) unset($l['trays'][$s]);   // drop placements in deleted groups

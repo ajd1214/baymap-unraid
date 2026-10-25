@@ -15,14 +15,18 @@ $bmSum = count($bmDevs) . ' disks, ' . $bmAsleep . ' asleep'
     . ($bmCount['warn'] ? ", <b style='color:#f0a020'>{$bmCount['warn']} warning</b>" : '');
 
 $bmBody = '';
-foreach ($bmL['groups'] as $g) {
+foreach (bm_group_rows($bmL['groups']) as $grow) {
+  $bmBody .= "<div class='bmd-row'>";
+  foreach ($grow as $g) {
+    $v = $g['orient'] === 'v';
     $cells = []; foreach ($bmL['trays'] as $s => $t) if ($t['group'] === $g['id']) $cells[(int)$t['tray']] = $s;
-    $bmBody .= "<div class='bmd-g'><div class='bmd-gn'>" . bm_h($g['name']) . "</div>"
-        . "<div class='bmd-grid' style='grid-template-columns:repeat(" . (int)$g['cols'] . ",1fr)'>";
+    $bmBody .= "<div class='bmd-g" . ($v ? ' bmd-v' : '') . "'><div class='bmd-gn'>" . bm_h($g['name']) . "</div>"
+        . "<div class='bmd-grid' style='grid-template-columns:repeat(" . (int)$g['cols'] . "," . ($v ? '34px' : 'minmax(0,1fr)') . ")'>";
     for ($n = (int)$g['start']; $n < (int)$g['start'] + $g['cols'] * $g['rows']; $n++) {
         [$row, $col] = bm_tray_pos($g, $n);
         $st = "grid-row:$row;grid-column:$col";
         $s = $cells[$n] ?? null;
+        if (bm_is_blank($g, $n)) { $bmBody .= "<div class='bmd-blank' style='$st'></div>"; continue; }
         if ($s !== null && isset($bmBy[$s])) {
             $d = $bmBy[$s]; $h = $d['health'];
             $tip = bm_h("{$d['name']} · {$d['model']} · " . bm_size($d['size_bytes']) . ' · ' . ($d['asleep'] ? 'asleep' : 'active')
@@ -38,6 +42,8 @@ foreach ($bmL['groups'] as $g) {
         }
     }
     $bmBody .= "</div></div>";
+  }
+  $bmBody .= "</div>";
 }
 if (!$bmL['groups']) $bmBody = "<div style='padding:6px 0'>No bays set up yet. Open Baymap to create them.</div>";
 
@@ -54,7 +60,11 @@ $mytiles['baymap']['column2'] = <<<EOT
 <tr><td>$bmHead</td></tr>
 <tr><td>
 <style>
-#db-baymap .bmd-g{margin:4px 0 8px}
+#db-baymap .bmd-row{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:flex-start}
+#db-baymap .bmd-g{margin:4px 0 8px;flex:1 1 auto}#db-baymap .bmd-v{flex:0 0 auto}
+#db-baymap .bmd-blank{height:26px}
+#db-baymap .bmd-v .bmd-t,#db-baymap .bmd-v .bmd-blank{height:64px;flex-direction:column;justify-content:center;padding:0 1px;font-size:.68em}
+#db-baymap .bmd-v .bmd-t span{max-width:100%;overflow:hidden;text-overflow:clip}
 #db-baymap .bmd-gn{font-size:.85em;opacity:.8;margin-bottom:2px}
 #db-baymap .bmd-grid{display:grid;gap:3px}
 #db-baymap .bmd-t{height:26px;border-radius:3px;display:flex;justify-content:space-between;align-items:center;padding:0 5px;

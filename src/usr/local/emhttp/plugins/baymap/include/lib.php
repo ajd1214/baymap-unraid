@@ -143,10 +143,36 @@ function bm_ago($t) {
 function bm_years($h) { return $h === null ? '' : number_format($h) . ' h (' . round($h / 8766, 1) . ' y)'; }
 
 // ---------- trays ----------
-// Tray number -> [row, col] (1-based), counting along rows or down columns.
+// Group defaults for fields added after the first release.
+function bm_group($g) {
+    return $g + ['order' => 'row', 'corner' => 'tl', 'orient' => 'h', 'place' => 'below', 'blank' => [], 'start' => 1, 'color' => ''];
+}
+// Tray number -> [row, col] (1-based): counting along rows or down columns, starting from a corner.
 function bm_tray_pos($g, $tray) {
-    $cols = max(1, (int)$g['cols']); $rows = max(1, (int)$g['rows']); $i = $tray - (int)($g['start'] ?? 1);
-    return ($g['order'] ?? 'row') === 'column' ? [$i % $rows + 1, intdiv($i, $rows) + 1] : [intdiv($i, $cols) + 1, $i % $cols + 1];
+    $g = bm_group($g);
+    $cols = max(1, (int)$g['cols']); $rows = max(1, (int)$g['rows']); $i = $tray - (int)$g['start'];
+    [$r, $c] = $g['order'] === 'column' ? [$i % $rows + 1, intdiv($i, $rows) + 1] : [intdiv($i, $cols) + 1, $i % $cols + 1];
+    if ($g['corner'][1] === 'r') $c = $cols + 1 - $c;
+    if ($g['corner'][0] === 'b') $r = $rows + 1 - $r;
+    return [$r, $c];
+}
+function bm_is_blank($g, $tray) { return in_array((int)$tray, array_map('intval', bm_group($g)['blank']), true); }
+// Groups in display rows: a group set to "beside" joins the row of the group before it.
+function bm_group_rows($groups) {
+    $rows = [];
+    foreach ($groups as $g) { $g = bm_group($g);
+        if (!$rows || $g['place'] !== 'beside') $rows[] = [];
+        $rows[count($rows) - 1][] = $g; }
+    return $rows;
+}
+// "3, 7-9" -> [3,7,8,9]
+function bm_parse_list($s) {
+    $out = [];
+    foreach (preg_split('/[\s,;]+/', (string)$s) as $p) {
+        if (preg_match('/^(\d+)-(\d+)$/', $p, $m)) { for ($i = (int)$m[1]; $i <= min((int)$m[2], (int)$m[1] + 600); $i++) $out[] = $i; }
+        elseif (ctype_digit($p)) $out[] = (int)$p;
+    }
+    return array_values(array_unique($out));
 }
 
 // ---------- import from Disk Location ----------
@@ -159,7 +185,9 @@ function bm_import_disklocation() {
     foreach ($groups as $gid => $g) {
         $l['groups'][] = ['id' => (string)$gid, 'name' => $g['group_name'] ?? "Group $gid",
             'cols' => (int)($g['grid_columns'] ?? 4), 'rows' => (int)($g['grid_rows'] ?? 1), 'start' => (int)($g['tray_start_num'] ?? 1),
-            'order' => ($g['grid_count'] ?? 'row') === 'column' ? 'column' : 'row', 'color' => !empty($g['group_color']) ? '#' . ltrim($g['group_color'], '#') : ''];
+            'order' => ($g['grid_count'] ?? 'row') === 'column' ? 'column' : 'row', 'color' => !empty($g['group_color']) ? '#' . ltrim($g['group_color'], '#') : '',
+            'orient' => ($g['disk_tray_direction'] ?? 'h') === 'v' ? 'v' : 'h', 'corner' => 'tl',
+            'place' => (!$l['groups'] || ($g['tray_pos'] ?? 'left') === 'break') ? 'below' : 'beside', 'blank' => []];
     }
     $n = 0;
     foreach ($locs as $hash => $loc) {

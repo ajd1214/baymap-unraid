@@ -2,13 +2,13 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "baymap">
 <!ENTITY author    "ajd1214">
-<!ENTITY version   "2026.10.24">
+<!ENTITY version   "2026.10.24a">
 <!ENTITY launch    "Utilities/Baymap">
 <!ENTITY gitURL    "https://raw.githubusercontent.com/ajd1214/baymap-unraid/main">
 <!ENTITY pluginURL "&gitURL;/baymap.plg">
 <!ENTITY plgPATH   "/boot/config/plugins/&name;">
 <!ENTITY emhttp    "/usr/local/emhttp/plugins/&name;">
-<!ENTITY pkgSHA    "6897652597ebcaf54159ecfae09ef5363adcef2f51aa6b7f3715ae4d61b32a0d">
+<!ENTITY pkgSHA    "33d597fb7572aef78ebfc726bf2764c86858e34f0e265f6a0298ede4cffa2c05">
 ]>
 <PLUGIN name="&name;"
         author="&author;"
@@ -19,6 +19,9 @@
         min="7.0.0">
 
 <CHANGES>
+###2026.10.24a
+- Layout per group: start corner (top/bottom, left/right), horizontal or upright trays, place beside or below the previous group, blank trays
+
 ###2026.10.24
 - First release: bay map, Dashboard tile, health at a glance from Unraid's own SMART reports (never wakes a disk),
   disk records, on-demand Locate and Benchmark, import from Disk Location

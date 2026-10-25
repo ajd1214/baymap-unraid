@@ -32,7 +32,13 @@ function bm_card($d, $C, $tray = null) {
 }
 ?>
 <style>
+.bm-row{display:flex;flex-wrap:wrap;gap:10px 28px;align-items:flex-start}
+.bm-row>.bm-group{min-width:min-content}.bm-row>.bm-v{flex:0 1 auto;min-width:min-content}
 .bm-group{margin:10px 0 22px}
+.bm-blank{min-height:74px}
+.bm-v .bm-card,.bm-v .bm-empty,.bm-v .bm-blank{min-height:190px}
+.bm-v .bm-top,.bm-v .bm-bottom{flex-direction:column;align-items:flex-start;gap:2px}
+.bm-v .bm-model,.bm-v .bm-sub{white-space:normal}
 .bm-group h3{margin:0 0 6px;font-size:1.15em;border-left:6px solid var(--gc,#888);padding-left:8px}
 .bm-grid{display:grid;gap:8px}
 .bm-card,.bm-empty{border-radius:6px;padding:7px 9px;min-height:74px;box-sizing:border-box}
@@ -65,17 +71,20 @@ Sleeping disks show their last known values (* = last known temperature). Click 
 <p><b>No bays set up yet.</b> Go to the <b>Layout</b> tab to create groups, or import your Disk Location layout there.</p>
 <?php endif; ?>
 
-<?php foreach ($L['groups'] as $g):
-    $cells = [];
+<?php foreach (bm_group_rows($L['groups']) as $grow): ?>
+<div class="bm-row">
+<?php foreach ($grow as $g):
+    $cells = []; $v = $g['orient'] === 'v';
     foreach ($L['trays'] as $serial => $t) if ($t['group'] === $g['id']) $cells[(int)$t['tray']] = $serial; ?>
-<div class="bm-group" style="--gc:<?=bm_h($g['color'] ?: '#888')?>">
+<div class="bm-group<?=$v ? ' bm-v' : ''?>" style="--gc:<?=bm_h($g['color'] ?: '#888')?><?=$v ? '' : ';flex:' . (int)$g['cols'] . ' 1 0px'?>">
 <h3><?=bm_h($g['name'])?></h3>
-<div class="bm-grid" style="grid-template-columns:repeat(<?=(int)$g['cols']?>,minmax(170px,1fr))">
+<div class="bm-grid" style="grid-template-columns:repeat(<?=(int)$g['cols']?>,<?=$v ? 'minmax(78px,110px)' : 'minmax(150px,1fr)'?>)">
 <?php for ($n = (int)$g['start']; $n < (int)$g['start'] + $g['cols'] * $g['rows']; $n++):
     [$row, $col] = bm_tray_pos($g, $n);
     $style = "grid-row:$row;grid-column:$col";
     $serial = $cells[$n] ?? null;
-    if ($serial !== null && isset($bySerial[$serial])) { $placed[$serial] = true;
+    if (bm_is_blank($g, $n)) echo "<div class='bm-blank' style='$style'></div>";
+    elseif ($serial !== null && isset($bySerial[$serial])) { $placed[$serial] = true;
         echo "<div style='$style'>" . bm_card($bySerial[$serial], $C, $n) . "</div>"; }
     elseif ($serial !== null) {
         $m = $R[$serial]['model_seen'] ?? '';
@@ -83,6 +92,8 @@ Sleeping disks show their last known values (* = last known temperature). Click 
     else echo "<div class='bm-empty' style='$style'>tray $n</div>";
 endfor; ?>
 </div></div>
+<?php endforeach; ?>
+</div>
 <?php endforeach; ?>
 
 <?php $unplaced = array_filter($devs, fn($d) => empty($placed[$d['serial']])); if ($unplaced): ?>

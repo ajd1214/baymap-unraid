@@ -11,7 +11,9 @@ the time of that report. There is no background job and no schedule.
 
 ## Features
 
-- **Map:** bay groups (cages, chassis, rows) in a grid; trays numbered along rows or down columns.
+- **Map:** bay groups (cages, chassis, backplanes) of any size, e.g. 1 x 5, 2 x 6, 4 x 8. Per group: trays
+  numbered along rows or down columns from any corner (to match the labels on your case), drawn horizontal or
+  upright, placed beside or below the previous group, and blank trays for slots that do not exist.
   Each tray shows the disk, model, size, active/asleep, temperature, power-on time, SSD life used and a
   health badge (OK, INFO, WARN, FAIL). A tray whose disk is not connected says so.
 - **Dashboard tile:** a compact bay map on the Unraid Dashboard: each tray shows the disk name and
