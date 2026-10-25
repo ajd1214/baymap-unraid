@@ -2,13 +2,13 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "baymap">
 <!ENTITY author    "ajd1214">
-<!ENTITY version   "2026.10.24a">
+<!ENTITY version   "2026.10.24b">
 <!ENTITY launch    "Utilities/Baymap">
 <!ENTITY gitURL    "https://raw.githubusercontent.com/ajd1214/baymap-unraid/main">
 <!ENTITY pluginURL "&gitURL;/baymap.plg">
 <!ENTITY plgPATH   "/boot/config/plugins/&name;">
 <!ENTITY emhttp    "/usr/local/emhttp/plugins/&name;">
-<!ENTITY pkgSHA    "33d597fb7572aef78ebfc726bf2764c86858e34f0e265f6a0298ede4cffa2c05">
+<!ENTITY pkgSHA    "1ff910d717bcc0f3f563d45c2a34007d983d4d747a507ea055721852163aa624">
 ]>
 <PLUGIN name="&name;"
         author="&author;"
@@ -19,6 +19,9 @@
         min="7.0.0">
 
 <CHANGES>
+###2026.10.24b
+- Fix: Layout tab buttons did nothing (its script clashed with the Map tab script on the same page)
+
 ###2026.10.24a
 - Layout per group: start corner (top/bottom, left/right), horizontal or upright trays, place beside or below the previous group, blank trays
 
