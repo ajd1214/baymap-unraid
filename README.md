@@ -14,6 +14,8 @@ the time of that report. There is no background job and no schedule.
 - **Map:** bay groups (cages, chassis, rows) in a grid; trays numbered along rows or down columns.
   Each tray shows the disk, model, size, active/asleep, temperature, power-on time, SSD life used and a
   health badge (OK, INFO, WARN, FAIL). A tray whose disk is not connected says so.
+- **Dashboard tile:** a compact bay map on the Unraid Dashboard: each tray shows the disk name and
+  temperature, colored by role, outlined by health, dimmed when asleep; hover for details, click to open Baymap.
 - **Health:** failed SMART attributes, reallocated/pending/uncorrectable sectors, CRC errors (cable),
   NVMe critical warnings and media errors, SSD wear, Unraid read/write errors and disk status.
 - **Disk records:** purchase date, warranty end, manufacture date, notes. Kept by serial number, so a
@@ -35,7 +37,7 @@ cp baymap-*.txz /boot/config/plugins/baymap/
 plugin install /path/to/baymap.plg
 ```
 
-The page is **Utilities → Baymap** (tabs: Map, Layout).
+The page is **Utilities → Baymap** (tabs: Map, Layout). The Dashboard tile can be moved or hidden like any other tile.
 
 ## Files
 

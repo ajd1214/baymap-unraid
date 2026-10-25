@@ -8,7 +8,7 @@
 <!ENTITY pluginURL "&gitURL;/baymap.plg">
 <!ENTITY plgPATH   "/boot/config/plugins/&name;">
 <!ENTITY emhttp    "/usr/local/emhttp/plugins/&name;">
-<!ENTITY pkgSHA    "96beb044e4436a91e7f5af95f6aae7c7be0c3bd21f118d80ae459fa634c2e78c">
+<!ENTITY pkgSHA    "6897652597ebcaf54159ecfae09ef5363adcef2f51aa6b7f3715ae4d61b32a0d">
 ]>
 <PLUGIN name="&name;"
         author="&author;"
@@ -20,7 +20,7 @@
 
 <CHANGES>
 ###2026.10.24
-- First release: bay map, health at a glance from Unraid's own SMART reports (never wakes a disk),
+- First release: bay map, Dashboard tile, health at a glance from Unraid's own SMART reports (never wakes a disk),
   disk records, on-demand Locate and Benchmark, import from Disk Location
 </CHANGES>
 

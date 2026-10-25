@@ -1,0 +1,73 @@
+Menu="Dashboard:0"
+Cond="version_compare(parse_ini_file('/etc/unraid-version')['version'],'6.12.0', '>=')"
+Markdown="false"
+---
+<?php
+// Baymap Dashboard tile: compact bay map. Same rule as the main page: only cached data,
+// never a command to a disk.
+require_once '/usr/local/emhttp/plugins/baymap/include/lib.php';
+$bmDevs = bm_devices(); $bmL = bm_layout();
+$bmBy = []; foreach ($bmDevs as $d) $bmBy[$d['serial']] = $d;
+$bmCount = ['ok' => 0, 'info' => 0, 'warn' => 0, 'fail' => 0]; $bmAsleep = 0;
+foreach ($bmDevs as $d) { $bmCount[$d['health']['level']]++; if ($d['asleep']) $bmAsleep++; }
+$bmSum = count($bmDevs) . ' disks, ' . $bmAsleep . ' asleep'
+    . ($bmCount['fail'] ? ", <b style='color:#ff4d4d'>{$bmCount['fail']} failing</b>" : '')
+    . ($bmCount['warn'] ? ", <b style='color:#f0a020'>{$bmCount['warn']} warning</b>" : '');
+
+$bmBody = '';
+foreach ($bmL['groups'] as $g) {
+    $cells = []; foreach ($bmL['trays'] as $s => $t) if ($t['group'] === $g['id']) $cells[(int)$t['tray']] = $s;
+    $bmBody .= "<div class='bmd-g'><div class='bmd-gn'>" . bm_h($g['name']) . "</div>"
+        . "<div class='bmd-grid' style='grid-template-columns:repeat(" . (int)$g['cols'] . ",1fr)'>";
+    for ($n = (int)$g['start']; $n < (int)$g['start'] + $g['cols'] * $g['rows']; $n++) {
+        [$row, $col] = bm_tray_pos($g, $n);
+        $st = "grid-row:$row;grid-column:$col";
+        $s = $cells[$n] ?? null;
+        if ($s !== null && isset($bmBy[$s])) {
+            $d = $bmBy[$s]; $h = $d['health'];
+            $tip = bm_h("{$d['name']} · {$d['model']} · " . bm_size($d['size_bytes']) . ' · ' . ($d['asleep'] ? 'asleep' : 'active')
+                . ($d['temp'] !== null ? " · {$d['temp']} °C" . ($d['temp_note'] === 'last known' ? ' (last known)' : '') : '')
+                . ($h['why'] ? "\n" . implode("\n", $h['why']) : ''));
+            $bg = $bmL['colors'][$d['role']] ?? $bmL['colors']['other'];
+            $bmBody .= "<div class='bmd-t bmd-{$h['level']}" . ($d['asleep'] ? ' bmd-sleep' : '') . "' style='$st;--role:$bg' title=\"$tip\">"
+                . "<span>" . bm_h($d['name']) . "</span><span>" . ($d['temp'] !== null ? $d['temp'] . '°' : '') . "</span></div>";
+        } elseif ($s !== null) {
+            $bmBody .= "<div class='bmd-t bmd-gone' style='$st' title='tray $n: disk not connected'><span>—</span></div>";
+        } else {
+            $bmBody .= "<div class='bmd-t bmd-empty' style='$st' title='tray $n: empty'></div>";
+        }
+    }
+    $bmBody .= "</div></div>";
+}
+if (!$bmL['groups']) $bmBody = "<div style='padding:6px 0'>No bays set up yet. Open Baymap to create them.</div>";
+
+// Unraid 7.2+ uses the responsive tile header; older versions the classic one.
+$bmVer = @parse_ini_file('/etc/unraid-version')['version'] ?? '0';
+$bmLink = "<a href='/Utilities/Baymap' title='Open Baymap'><i class='fa fa-fw fa-external-link control'></i></a>";
+$bmHead = version_compare($bmVer, '7.2.0-beta', '>=')
+  ? "<span class='tile-header'><span class='tile-header-left'><i class='fa fa-hdd-o f32'></i><div class='section'><h3 class='tile-header-main'>Baymap</h3><span>$bmSum</span></div></span>"
+    . "<span class='tile-header-right'><span class='tile-header-right-controls'>$bmLink</span></span></span>"
+  : "<i class='fa fa-hdd-o f32'></i><div class='section'>Baymap<br><span>$bmSum</span></div>$bmLink";
+
+$mytiles['baymap']['column2'] = <<<EOT
+<tbody id="db-baymap" class="sortable" title="Baymap">
+<tr><td>$bmHead</td></tr>
+<tr><td>
+<style>
+#db-baymap .bmd-g{margin:4px 0 8px}
+#db-baymap .bmd-gn{font-size:.85em;opacity:.8;margin-bottom:2px}
+#db-baymap .bmd-grid{display:grid;gap:3px}
+#db-baymap .bmd-t{height:26px;border-radius:3px;display:flex;justify-content:space-between;align-items:center;padding:0 5px;
+  font-size:.78em;color:#fff;background:color-mix(in srgb,var(--role,#555) 80%,#000);border:2px solid transparent;overflow:hidden;white-space:nowrap;cursor:default}
+#db-baymap .bmd-sleep{opacity:.6}
+#db-baymap .bmd-info{border-color:#3a8ee6}#db-baymap .bmd-warn{border-color:#f0a020}
+#db-baymap .bmd-fail{border-color:#ff2d2d;animation:bmdflash 1.2s infinite}
+@keyframes bmdflash{50%{border-color:transparent}}
+#db-baymap .bmd-empty{background:transparent;border:1px dashed #666}
+#db-baymap .bmd-gone{background:transparent;border:1px dashed #c66;color:#c88;justify-content:center}
+</style>
+<a href="/Utilities/Baymap" style="text-decoration:none;color:inherit;display:block">$bmBody</a>
+</td></tr>
+</tbody>
+EOT;
+?>
