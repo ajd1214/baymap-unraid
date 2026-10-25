@@ -1,0 +1,55 @@
+<?xml version='1.0' standalone='yes'?>
+<!DOCTYPE PLUGIN [
+<!ENTITY name      "baymap">
+<!ENTITY author    "ajd1214">
+<!ENTITY version   "2026.10.24">
+<!ENTITY launch    "Utilities/Baymap">
+<!ENTITY gitURL    "https://raw.githubusercontent.com/ajd1214/baymap-unraid/main">
+<!ENTITY pluginURL "&gitURL;/baymap.plg">
+<!ENTITY plgPATH   "/boot/config/plugins/&name;">
+<!ENTITY emhttp    "/usr/local/emhttp/plugins/&name;">
+<!ENTITY pkgSHA    "96beb044e4436a91e7f5af95f6aae7c7be0c3bd21f118d80ae459fa634c2e78c">
+]>
+<PLUGIN name="&name;"
+        author="&author;"
+        version="&version;"
+        launch="&launch;"
+        pluginURL="&pluginURL;"
+        icon="hdd-o"
+        min="7.0.0">
+
+<CHANGES>
+###2026.10.24
+- First release: bay map, health at a glance from Unraid's own SMART reports (never wakes a disk),
+  disk records, on-demand Locate and Benchmark, import from Disk Location
+</CHANGES>
+
+<FILE Name="&plgPATH;/&name;-&version;.txz" Run="upgradepkg --install-new">
+<URL>&gitURL;/packages/&name;-&version;.txz</URL>
+<SHA256>&pkgSHA;</SHA256>
+</FILE>
+
+<!-- install / every boot -->
+<FILE Run="/bin/bash">
+<INLINE>
+P=&plgPATH;
+mkdir -p "$P"
+# First install: take over the Disk Location layout if it is still on the flash drive.
+if [ ! -f "$P/layout.json" ] &amp;&amp; [ -f /boot/config/plugins/disklocation/locations.json ]; then
+  php -r 'require "&emhttp;/include/lib.php"; [$ok,$m]=bm_import_disklocation(); echo "Disk Location import: $m\n";'
+fi
+for f in "$P"/&name;-*.txz; do [ "$f" = "$P/&name;-&version;.txz" ] || rm -f "$f"; done
+echo "Baymap &version; installed. Utilities > Baymap"
+</INLINE>
+</FILE>
+
+<!-- uninstall: remove the package, keep layout.json and records.json on the flash drive -->
+<FILE Run="/bin/bash" Method="remove">
+<INLINE>
+removepkg &plgPATH;/&name;-&version;.txz >/dev/null 2>&amp;1
+rm -rf &emhttp;
+rm -f &plgPATH;/&name;-*.txz
+echo "Baymap removed. Layout and disk records were kept in &plgPATH;"
+</INLINE>
+</FILE>
+</PLUGIN>

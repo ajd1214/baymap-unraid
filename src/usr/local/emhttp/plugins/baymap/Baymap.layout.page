@@ -1,0 +1,68 @@
+Menu="Baymap:1"
+Title="Layout"
+Tag="icon-disk"
+Markdown="false"
+---
+<?php
+require_once '/usr/local/emhttp/plugins/baymap/include/lib.php';
+$L = bm_layout(); $csrf = $var['csrf_token'] ?? '';
+$dl = is_file(bm_path(BM_DL_DIR . '/locations.json'));
+?>
+<style>
+#bm-groups td,#bm-groups th{padding:3px 8px 3px 0;text-align:left}
+#bm-groups input[type=text]{width:120px}#bm-groups input.n{width:45px}
+.bm-note{opacity:.75;font-size:.9em}.bm-msg{margin-left:10px;font-weight:bold}
+</style>
+
+<h3 style="margin-top:0">Bay groups</h3>
+<p class="bm-note">One group per cage, chassis or row of bays. Trays are numbered from <i>First tray</i>, counting along rows or down columns.
+To place a disk, open it on the Map tab and choose its group and tray.</p>
+<div id="bm-box">
+<table id="bm-groups">
+<thead><tr><th>Name</th><th>Columns</th><th>Rows</th><th>First tray</th><th>Count trays</th><th>Color</th><th></th></tr></thead>
+<tbody></tbody>
+</table>
+<input type="button" value="Add group" onclick="bmAdd({})">
+<input type="button" value="Save groups" onclick="bmSave()">
+<span class="bm-msg"></span>
+</div>
+
+<h3>Import from Disk Location</h3>
+<?php if ($dl): ?>
+<p class="bm-note">Disk Location's settings are still on the flash drive (<?=bm_h(BM_DL_DIR)?>). Importing copies its groups, which disk sits in which tray,
+and its disk records (purchase date, warranty, notes). It <b>replaces</b> Baymap's current groups and placements; existing Baymap notes are kept.</p>
+<div id="bm-imp"><input type="button" value="Import Disk Location layout" onclick="bmImport()"><span class="bm-msg"></span></div>
+<?php else: ?>
+<p class="bm-note">No Disk Location settings found on the flash drive.</p>
+<?php endif; ?>
+
+<script>
+const bmCsrf = <?=json_encode($csrf)?>;
+const bmInit = <?=json_encode($L['groups'])?>;
+function bmAdd(g){
+  const tr=document.createElement('tr'); tr.dataset.id=g.id||'';
+  tr.innerHTML=`<td><input type="text" data-f="name"></td><td><input class="n" type="number" min="1" max="24" data-f="cols"></td>
+   <td><input class="n" type="number" min="1" max="24" data-f="rows"></td><td><input class="n" type="number" min="0" data-f="start"></td>
+   <td><select data-f="order"><option value="row">along rows</option><option value="column">down columns</option></select></td>
+   <td><input type="color" data-f="color"></td><td><input type="button" value="Delete" onclick="if(confirm('Delete this group? Disks placed in it become unplaced.'))this.closest('tr').remove()"></td>`;
+  const v={name:g.name||'New group',cols:g.cols||4,rows:g.rows||1,start:g.start??1,order:g.order||'row',color:g.color||'#888888'};
+  for (const k in v) tr.querySelector('[data-f="'+k+'"]').value=v[k];
+  document.querySelector('#bm-groups tbody').appendChild(tr);
+}
+bmInit.forEach(bmAdd);
+async function bmPost(data, box){
+  const f=new FormData(); f.append('csrf_token', bmCsrf); for (const k in data) f.append(k, data[k]);
+  const msg=box.querySelector('.bm-msg'); msg.textContent='working...';
+  try { const r=await fetch('/plugins/baymap/include/action.php',{method:'POST',body:f}); const j=await r.json(); msg.textContent=j.msg; return j; }
+  catch(e){ msg.textContent='failed: '+e; return {ok:false}; }
+}
+function bmSave(){
+  const groups=[...document.querySelectorAll('#bm-groups tbody tr')].map(tr=>{ const g={id:tr.dataset.id};
+    tr.querySelectorAll('[data-f]').forEach(e=>g[e.dataset.f]=e.value); return g; });
+  bmPost({action:'save_groups',groups:JSON.stringify(groups)}, document.getElementById('bm-box'));
+}
+async function bmImport(){
+  if (!confirm('Replace Baymap\'s groups and tray placements with the Disk Location layout?')) return;
+  const j=await bmPost({action:'import_dl'}, document.getElementById('bm-imp')); if (j.ok) setTimeout(()=>location.reload(),900);
+}
+</script>

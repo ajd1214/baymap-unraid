@@ -1,0 +1,167 @@
+Menu="Utilities"
+Type="xmenu"
+Title="Baymap"
+Icon="baymap.png"
+Tag="icon-disk"
+Tabs="true"
+Markdown="false"
+---
+<?php
+// Baymap: drive bay map with health at a glance. Reads only data Unraid already keeps, so
+// opening this page never wakes a sleeping disk.
+require_once '/usr/local/emhttp/plugins/baymap/include/lib.php';
+$devs = bm_devices(); $L = bm_layout(); $R = bm_records(); $C = $L['colors'];
+$bySerial = []; foreach ($devs as $d) $bySerial[$d['serial']] = $d;
+$placed = [];   // serial => true
+$csrf = $var['csrf_token'] ?? '';
+$roleName = ['parity' => 'Parity', 'data' => 'Array', 'pool' => 'Pool', 'other' => 'Unassigned'];
+
+function bm_card($d, $C, $tray = null) {
+    $h = $d['health']; $s = $d['smart'];
+    $bg = $C[$d['role']] ?? $C['other'];
+    $temp = $d['temp'] === null ? '' : "{$d['temp']}&nbsp;°C";
+    $state = $d['asleep'] ? '<span class="bm-dot bm-sleep" title="asleep"></span>asleep' : '<span class="bm-dot bm-spin" title="active"></span>active';
+    $wear = $s['wear_used'] !== null ? " · life used {$s['wear_used']}%" : '';
+    $tip = $h['why'] ? bm_h(implode("\n", $h['why'])) : 'no problems found';
+    return "<div class='bm-card bm-{$h['level']}' style='--role:$bg' onclick=\"bmShow('" . bm_h($d['serial']) . "')\" title=\"$tip\">"
+        . "<div class='bm-top'><b>" . bm_h($d['name']) . "</b><span>" . bm_h($d['kind']) . ' ' . bm_size($d['size_bytes']) . "</span></div>"
+        . "<div class='bm-model'>" . bm_h($d['model']) . "</div>"
+        . "<div class='bm-bottom'><span>$state</span><span>$temp" . ($d['temp_note'] === 'last known' && $temp ? '*' : '') . "</span>"
+        . "<span class='bm-badge'>" . strtoupper($h['level']) . "</span></div>"
+        . "<div class='bm-sub'>" . ($tray !== null ? "<b>#$tray</b> · " : '') . bm_h(bm_years($s['poh'])) . $wear . "</div></div>";
+}
+?>
+<style>
+.bm-group{margin:10px 0 22px}
+.bm-group h3{margin:0 0 6px;font-size:1.15em;border-left:6px solid var(--gc,#888);padding-left:8px}
+.bm-grid{display:grid;gap:8px}
+.bm-card,.bm-empty{border-radius:6px;padding:7px 9px;min-height:74px;box-sizing:border-box}
+.bm-card{cursor:pointer;background:color-mix(in srgb,var(--role) 82%,#000);color:#fff;border:3px solid transparent}
+.bm-card:hover{filter:brightness(1.12)}
+.bm-card.bm-info{border-color:#3a8ee6}.bm-card.bm-warn{border-color:#f0a020}.bm-card.bm-fail{border-color:#ff2d2d;animation:bmflash 1.2s infinite}
+@keyframes bmflash{50%{border-color:transparent}}
+.bm-empty{border:2px dashed #666;color:#888;display:flex;align-items:center;justify-content:center;font-size:.9em}
+.bm-missing{border:2px dashed #c66;color:#c88;flex-direction:column}
+.bm-top,.bm-bottom{display:flex;justify-content:space-between;gap:6px;align-items:center}
+.bm-model,.bm-sub{font-size:.85em;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bm-badge{font-size:.75em;padding:1px 6px;border-radius:3px;background:rgba(0,0,0,.35)}
+.bm-ok .bm-badge{background:#2e7d32}.bm-info .bm-badge{background:#2a6fb5}.bm-warn .bm-badge{background:#c77800}.bm-fail .bm-badge{background:#c62828}
+.bm-dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px}
+.bm-spin{background:#4caf50}.bm-sleep{background:#777}
+.bm-detail{display:none;border:1px solid #666;border-radius:6px;padding:10px 14px;margin:8px 0 16px}
+.bm-detail table{border-collapse:collapse;margin:4px 0 10px}
+.bm-detail td,.bm-detail th{padding:2px 10px 2px 0;text-align:left;vertical-align:top}
+.bm-attr td{font-family:monospace;font-size:.9em}
+.bm-attr tr.bad td{color:#f0a020}
+.bm-cols{display:flex;flex-wrap:wrap;gap:30px}
+.bm-note{opacity:.75;font-size:.9em}
+.bm-msg{margin-left:10px;font-weight:bold}
+</style>
+
+<p class="bm-note">Health comes from the SMART report Unraid saves whenever a disk is awake. This page never wakes a disk.
+Sleeping disks show their last known values (* = last known temperature). Click a disk for details.</p>
+
+<?php if (!$L['groups']): ?>
+<p><b>No bays set up yet.</b> Go to the <b>Layout</b> tab to create groups, or import your Disk Location layout there.</p>
+<?php endif; ?>
+
+<?php foreach ($L['groups'] as $g):
+    $cells = [];
+    foreach ($L['trays'] as $serial => $t) if ($t['group'] === $g['id']) $cells[(int)$t['tray']] = $serial; ?>
+<div class="bm-group" style="--gc:<?=bm_h($g['color'] ?: '#888')?>">
+<h3><?=bm_h($g['name'])?></h3>
+<div class="bm-grid" style="grid-template-columns:repeat(<?=(int)$g['cols']?>,minmax(170px,1fr))">
+<?php for ($n = (int)$g['start']; $n < (int)$g['start'] + $g['cols'] * $g['rows']; $n++):
+    [$row, $col] = bm_tray_pos($g, $n);
+    $style = "grid-row:$row;grid-column:$col";
+    $serial = $cells[$n] ?? null;
+    if ($serial !== null && isset($bySerial[$serial])) { $placed[$serial] = true;
+        echo "<div style='$style'>" . bm_card($bySerial[$serial], $C, $n) . "</div>"; }
+    elseif ($serial !== null) {
+        $m = $R[$serial]['model_seen'] ?? '';
+        echo "<div class='bm-empty bm-missing' style='$style' title='This disk is not connected right now'><span>tray $n: not connected</span><span>" . bm_h($m ?: $serial) . "</span></div>"; }
+    else echo "<div class='bm-empty' style='$style'>tray $n</div>";
+endfor; ?>
+</div></div>
+<?php endforeach; ?>
+
+<?php $unplaced = array_filter($devs, fn($d) => empty($placed[$d['serial']])); if ($unplaced): ?>
+<div class="bm-group" style="--gc:#666"><h3>Not placed in a bay</h3>
+<div class="bm-grid" style="grid-template-columns:repeat(auto-fill,minmax(190px,1fr))">
+<?php foreach ($unplaced as $d) echo '<div>' . bm_card($d, $C) . '</div>'; ?>
+</div></div>
+<?php endif; ?>
+
+<?php foreach ($devs as $d): $s = $d['smart']; $r = $R[$d['serial']] ?? []; $t = $L['trays'][$d['serial']] ?? ['group' => '', 'tray' => '']; ?>
+<div class="bm-detail" id="bm-d-<?=bm_h($d['serial'])?>">
+<div class="bm-cols">
+<div>
+<h3 style="margin:0 0 6px"><?=bm_h($d['name'])?> &middot; <?=bm_h($d['model'])?></h3>
+<table>
+<tr><th>Device</th><td>/dev/<?=bm_h($d['device'])?> (<?=bm_h($roleName[$d['role']])?>, <?=bm_h($d['kind'])?>)</td></tr>
+<tr><th>Serial</th><td><?=bm_h($d['serial'])?></td></tr>
+<tr><th>Size</th><td><?=bm_size($d['size_bytes'])?></td></tr>
+<tr><th>State</th><td><?=$d['asleep'] ? 'asleep' : 'active'?><?=$d['temp'] !== null ? " &middot; {$d['temp']} °C ({$d['temp_note']})" : ''?></td></tr>
+<tr><th>Power on</th><td><?=bm_h(bm_years($s['poh']))?></td></tr>
+<?php if ($s['wear_used'] !== null): ?><tr><th>SSD life used</th><td><?=$s['wear_used']?>%</td></tr><?php endif; ?>
+<tr><th>SMART report</th><td><?=$s['as_of'] ? 'from ' . date('Y-m-d H:i', $s['as_of']) . ' (' . bm_ago($s['as_of']) . ')' : 'none yet'?></td></tr>
+<tr><th>Health</th><td><b><?=strtoupper($d['health']['level'])?></b><?=$d['health']['why'] ? ': ' . bm_h(implode('; ', $d['health']['why'])) : ''?></td></tr>
+</table>
+</div>
+<div>
+<h4 style="margin:0 0 6px">Disk record</h4>
+<table>
+<tr><th>Purchased</th><td><input type="text" size="11" placeholder="YYYY-MM-DD" data-f="purchased" value="<?=bm_h($r['purchased'] ?? '')?>"></td></tr>
+<tr><th>Warranty ends</th><td><input type="text" size="11" placeholder="YYYY-MM-DD" data-f="warranty_end" value="<?=bm_h($r['warranty_end'] ?? '')?>"><?=!empty($r['warranty_months']) ? ' <span class="bm-note">(imported: ' . (int)$r['warranty_months'] . ' months)</span>' : ''?></td></tr>
+<tr><th>Manufactured</th><td><input type="text" size="11" placeholder="YYYY-MM-DD" data-f="manufactured" value="<?=bm_h($r['manufactured'] ?? '')?>"></td></tr>
+<tr><th>Notes</th><td><input type="text" size="40" data-f="comment" value="<?=bm_h($r['comment'] ?? '')?>"></td></tr>
+</table>
+<input type="button" value="Save record" onclick="bmRecord('<?=bm_h($d['serial'])?>')">
+<h4 style="margin:12px 0 6px">Bay</h4>
+<select data-f="group"><option value="">not placed</option>
+<?php foreach ($L['groups'] as $g) echo '<option value="' . bm_h($g['id']) . '"' . ($t['group'] === $g['id'] ? ' selected' : '') . '>' . bm_h($g['name']) . '</option>'; ?>
+</select> tray <input type="text" size="3" data-f="tray" value="<?=bm_h($t['tray'])?>">
+<input type="button" value="Save bay" onclick="bmTray('<?=bm_h($d['serial'])?>')">
+<h4 style="margin:12px 0 6px">Find / test this disk</h4>
+<input type="button" value="Locate (blink light 30 s)" onclick="bmAct('locate','<?=bm_h($d['device'])?>','<?=bm_h($d['serial'])?>')">
+<input type="button" value="Benchmark" onclick="bmAct('benchmark','<?=bm_h($d['device'])?>','<?=bm_h($d['serial'])?>')">
+<div class="bm-note">Both read from this disk, so they wake it if it is asleep.</div>
+<?php if (!empty($r['bench'])): ?><div class="bm-note">Earlier benchmarks: <?=bm_h(implode(', ', array_map(fn($b) => "{$b['mbs']} MB/s ({$b['date']})", array_reverse($r['bench']))))?></div><?php endif; ?>
+<span class="bm-msg"></span>
+</div>
+</div>
+<?php if ($s['attrs']): ?>
+<table class="bm-attr"><tr><th>ID</th><th>Attribute</th><th>Value</th><th>Worst</th><th>Thresh</th><th>Failed</th><th>Raw</th></tr>
+<?php foreach ($s['attrs'] as $id => $x) { $bad = ($x['failed'] !== '-') || (in_array($id, [5, 187, 197, 198, 199]) && $x['rawn'] > 0);
+    echo "<tr" . ($bad ? " class='bad'" : '') . "><td>$id</td><td>" . bm_h($x['name']) . "</td><td>{$x['value']}</td><td>{$x['worst']}</td><td>" . bm_h($x['thresh']) . "</td><td>" . bm_h($x['failed']) . "</td><td>" . bm_h($x['raw']) . "</td></tr>"; } ?>
+</table>
+<?php elseif ($s['nvme']): ?>
+<table class="bm-attr"><?php foreach ($s['nvme'] as $k => $v) echo '<tr><td>' . bm_h($k) . '</td><td>' . bm_h($v) . '</td></tr>'; ?></table>
+<?php endif; ?>
+</div>
+<?php endforeach; ?>
+
+<script>
+const bmCsrf = <?=json_encode($csrf)?>;
+function bmShow(serial){
+  document.querySelectorAll('.bm-detail').forEach(e=>{ if(e.id!=='bm-d-'+serial) e.style.display='none'; });
+  const d=document.getElementById('bm-d-'+serial); if(!d) return;
+  d.style.display = d.style.display==='block' ? 'none' : 'block';
+  if (d.style.display==='block') d.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+async function bmPost(data, box){
+  const f=new FormData(); f.append('csrf_token', bmCsrf); for (const k in data) f.append(k, data[k]);
+  const msg=box.querySelector('.bm-msg'); if (msg) msg.textContent='working...';
+  try { const r=await fetch('/plugins/baymap/include/action.php',{method:'POST',body:f}); const j=await r.json();
+        if (msg) msg.textContent=j.msg; return j; } catch(e){ if (msg) msg.textContent='failed: '+e; return {ok:false}; }
+}
+function bmVal(box,f){ const e=box.querySelector('[data-f="'+f+'"]'); return e?e.value:''; }
+function bmRecord(serial){ const b=document.getElementById('bm-d-'+serial);
+  bmPost({action:'save_record',serial,purchased:bmVal(b,'purchased'),warranty_end:bmVal(b,'warranty_end'),manufactured:bmVal(b,'manufactured'),comment:bmVal(b,'comment')},b); }
+async function bmTray(serial){ const b=document.getElementById('bm-d-'+serial);
+  const j=await bmPost({action:'save_tray',serial,group:bmVal(b,'group'),tray:bmVal(b,'tray')},b); if (j.ok) setTimeout(()=>location.reload(),600); }
+function bmAct(action, device, serial){ const b=document.getElementById('bm-d-'+serial);
+  const what = action==='locate' ? 'read from this disk for 30 seconds so its light blinks' : 'run a read-speed test (about 10 seconds)';
+  if (!confirm('This will '+what+'. It wakes the disk if it is asleep. Continue?')) return;
+  bmPost({action,device,seconds:30},b); }
+</script>
