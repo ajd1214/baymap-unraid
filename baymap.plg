@@ -2,13 +2,13 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "baymap">
 <!ENTITY author    "ajd1214">
-<!ENTITY version   "2026.10.24c">
+<!ENTITY version   "2026.11.10">
 <!ENTITY launch    "Utilities/Baymap">
 <!ENTITY gitURL    "https://raw.githubusercontent.com/ajd1214/baymap-unraid/main">
 <!ENTITY pluginURL "&gitURL;/baymap.plg">
 <!ENTITY plgPATH   "/boot/config/plugins/&name;">
 <!ENTITY emhttp    "/usr/local/emhttp/plugins/&name;">
-<!ENTITY pkgSHA    "8e833aa37a9dcc2f6a80929fbc6d6cc1d89076ec988b12a10a96c7b6df52ded6">
+<!ENTITY pkgSHA    "fe8841525811663564b5895d1a05d1a93039be46a26cfc6996413a4a0c6e0c7f">
 ]>
 <PLUGIN name="&name;"
         author="&author;"
@@ -19,6 +19,9 @@
         min="7.0.0">
 
 <CHANGES>
+###2026.11.10
+- Rated SSD life (wear counters) no longer counts as a fault: only real errors raise a disk's health level. Life used is still shown in the disk's details
+
 ###2026.10.24c
 - Fix: Save buttons could hang; requests are now sent form-encoded like the rest of the Unraid web UI
 

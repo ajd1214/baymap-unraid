@@ -110,14 +110,15 @@ function bm_health($s, $d) {
     $lvl = 0; $why = [];
     $bump = function ($l, $txt) use (&$lvl, &$why) { $lvl = max($lvl, $l); $why[] = $txt; };
     $a = $s['attrs']; $n = $s['nvme'];
-    foreach ($a as $id => $x) if ($x['failed'] !== '-' && $x['failed'] !== '') $bump(3, "SMART attribute $id {$x['name']} failed ({$x['failed']})");
+    // Rated-life counters (wear) are not faults: a drive past its rated writes keeps working until something
+    // real shows up (reallocations, uncorrectable errors, media errors). They never raise the health level.
+    $life = '/Lifetime|Life_Left|Remaining_Life|Wear|Media_Wearout|Percent_Lifetime|Endurance|Block-Erase/i';
+    foreach ($a as $id => $x) if ($x['failed'] !== '-' && $x['failed'] !== '' && !preg_match($life, $x['name'])) $bump(3, "SMART attribute $id {$x['name']} failed ({$x['failed']})");
     foreach ([5 => 'reallocated sectors', 197 => 'pending sectors', 198 => 'uncorrectable sectors', 187 => 'reported uncorrectable errors'] as $id => $txt)
         if (isset($a[$id]) && $a[$id]['rawn'] > 0) $bump(2, "{$a[$id]['rawn']} $txt");
     if (isset($a[199]) && $a[199]['rawn'] > 0) $bump(1, "{$a[199]['rawn']} CRC errors (cable or connector)");
     if (isset($n['Critical Warning']) && !preg_match('/^0x0+$/', $n['Critical Warning'])) $bump(3, "NVMe critical warning {$n['Critical Warning']}");
     if (isset($n['Media and Data Integrity Errors']) && (int)$n['Media and Data Integrity Errors'] > 0) $bump(2, "{$n['Media and Data Integrity Errors']} NVMe media errors");
-    if ($s['wear_used'] !== null && $s['wear_used'] >= 100) $bump(2, "rated SSD life used up ({$s['wear_used']}%)");
-    elseif ($s['wear_used'] !== null && $s['wear_used'] >= 90) $bump(1, "SSD life {$s['wear_used']}% used");
     if ((int)($d['numErrors'] ?? 0) > 0) $bump(2, "{$d['numErrors']} read/write errors (Unraid)");
     $c = $d['color'] ?? '';
     if (str_starts_with($c, 'red')) $bump(3, 'disabled or failed in Unraid');
